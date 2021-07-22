@@ -4,6 +4,47 @@ import os
 import setGPU
 import tensorflow as tf
 
+from tensorflow.keras.callbacks import (
+    EarlyStopping,
+    ModelCheckpoint,
+    ReduceLROnPlateau)
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import (
+    Activation,
+    AveragePooling2D,
+    # BatchNormalization,
+    Conv2D,
+    # Dropout,
+    Dense,
+    Flatten,
+    Input,
+    Reshape,
+    UpSampling2D)
+
+
+def CAE(input_size):
+    inputs = Input(shape=input_size)
+    x = Conv2D(16, kernel_size=(3, 3), use_bias=False, padding='same')(inputs)
+    x = Activation('relu')(x)
+    x = AveragePooling2D(pool_size=(2, 2))(x)
+    x = Conv2D(32, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = Activation('relu')(x)
+    x = AveragePooling2D(pool_size=(2, 2))(x)
+    x = Flatten()(x)
+    x = Dense(10, use_bias=False)(x)
+    x = Dense(8064)(x)
+    x = Activation('relu')(x)
+    x = Reshape((14, 18, 32))(x)
+    x = Conv2D(32, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = Activation('relu')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(16, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = Activation('relu')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(1, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    autoencoder = Model(inputs=inputs, outputs=x)
+    return autoencoder
+
 
 if __name__ == '__main__':
 
@@ -34,10 +75,32 @@ if __name__ == '__main__':
 
     train_dataset = tf.data.Dataset \
         .zip((X_train, X_train)) \
-        .shuffle(60000).batch(args.batch_size) \
+        .shuffle(60000) \
+        .batch(args.batch_size) \
         .prefetch(tf.data.experimental.AUTOTUNE)
-
     validation_dataset = tf.data.Dataset \
         .zip((X_validation, X_validation)) \
-        .shuffle(60000).batch(args.batch_size) \
+        .shuffle(60000) \
+        .batch(args.batch_size) \
         .prefetch(tf.data.experimental.AUTOTUNE)
+
+    # Search for hyperparameters
+    model = CAE((56, 72, 1))
+
+    # Model summary
+    model.summary()
+
+    # Recompile the model
+    loss = tf.keras.losses.BinaryCrossentropy(
+        reduction=tf.keras.losses.Reduction.SUM)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+    model.compile(loss=loss, optimizer=optimizer)
+
+    model.fit(train_dataset,
+              epochs=args.epochs,
+              validation_data=validation_dataset,
+              callbacks=[EarlyStopping('val_loss',  patience=args.patience),
+                         ModelCheckpoint(args.save_path)],
+              use_multiprocessing=True,
+              workers=args.workers)

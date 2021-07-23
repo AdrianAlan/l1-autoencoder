@@ -12,7 +12,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (
     Activation,
     AveragePooling2D,
-    # BatchNormalization,
+    BatchNormalization,
     Conv2D,
     # Dropout,
     Dense,
@@ -25,20 +25,36 @@ from tensorflow.keras.layers import (
 def CAE(input_size):
     inputs = Input(shape=input_size)
     x = Conv2D(16, kernel_size=(3, 3), use_bias=False, padding='same')(inputs)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = AveragePooling2D(pool_size=(2, 2))(x)
     x = Conv2D(32, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = AveragePooling2D(pool_size=(2, 2))(x)
+    x = Conv2D(32, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = AveragePooling2D(pool_size=(2, 2))(x)
+    x = Conv2D(32, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = AveragePooling2D(pool_size=(2, 2))(x)
     x = Flatten()(x)
     x = Dense(10, use_bias=False)(x)
-    x = Dense(8064)(x)
+    x = Dense(252, use_bias=False)(x)
     x = Activation('relu')(x)
-    x = Reshape((14, 18, 32))(x)
+    x = Reshape((7, 9, 4))(x)
     x = Conv2D(32, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(32, kernel_size=(2, 2), use_bias=False, padding='same')(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = UpSampling2D((2, 2))(x)
     x = Conv2D(16, kernel_size=(3, 3), use_bias=False, padding='same')(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = UpSampling2D((2, 2))(x)
     x = Conv2D(1, kernel_size=(3, 3), use_bias=False, padding='same')(x)
@@ -59,7 +75,7 @@ if __name__ == '__main__':
                         help='Number of training epochs', dest='epochs')
     parser.add_argument('-s', '--steps', type=int, default=1000,
                         help='Number of steps per epoch', dest='steps')
-    parser.add_argument('-p', '--patience', type=int, default=2,
+    parser.add_argument('-p', '--patience', type=int, default=10,
                         help='LR reduction callback patience',
                         dest='patience')
     parser.add_argument('-w', '--workers', type=int, default='10',
@@ -92,7 +108,7 @@ if __name__ == '__main__':
 
     # Recompile the model
     loss = tf.keras.losses.BinaryCrossentropy(
-        reduction=tf.keras.losses.Reduction.SUM)
+        reduction=tf.keras.losses.Reduction.AUTO)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
     model.compile(loss=loss, optimizer=optimizer)
